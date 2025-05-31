@@ -227,8 +227,8 @@ class CAG_FUNDUS_Copy_Paste(object) :
                 # CAG_msk.save(f"{self.output_path}/augmented_mask/{num:05d}.png")
                 # num += 1
                 
-                CAG_img.save(f"{self.output_path}/augmented_image/{CAG["name"]}_{FUNDUS["name"]}.png")
-                CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG["name"]}_{FUNDUS["name"]}.png")
+                CAG_img.save(f"{self.output_path}/augmented_image/{CAG["name"].split('.')[0]}_{FUNDUS["name"].split('.')[0]}.png")
+                CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG["name"].split('.')[0]}_{FUNDUS["name"].split('.')[0]}.png")
     
         print(f"Generate Complete !\nCAG {len(self.CAG_paths)} * FUNDUS {len(self.FUNDUS_paths)} = Total {len(self.CAG_paths) * len(self.FUNDUS_paths)}")
 

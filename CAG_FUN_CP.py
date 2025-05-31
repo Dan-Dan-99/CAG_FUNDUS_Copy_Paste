@@ -16,7 +16,7 @@ def natural_key(text) :
 
 
 class ImageLoader(object) :
-    def __init__(self, CAG_img_path : list[str], CAG_msk_path : list[str], FUNDUS_img_path : list[str], FUNDUS_msk_path : list[str]) :
+    def __init__(self, CAG_img_path, CAG_msk_path, FUNDUS_img_path, FUNDUS_msk_path) :
         self.CAG_img_path = sorted(CAG_img_path, key = natural_key)
         self.CAG_msk_path = sorted(CAG_msk_path, key = natural_key)
         self.FUNDUS_img_path = sorted(FUNDUS_img_path, key = natural_key)
@@ -94,7 +94,8 @@ class CustomDilate(A.DualTransform) :
         return cv2.dilate(mask, self.kernel, iterations = self.iterations)
 
 class FUNDUS_ImageProcess(object) :
-    def __init__(self) :
+    def __init__(self, FUNDUS_path) :
+        self.FUNDUS_path = FUNDUS_path
         self.FUNDUS_transforms = A.Compose(
             [
                 A.CLAHE(clip_limit = 8.0, tile_grid_size = (8, 8), p = 1),
@@ -108,7 +109,7 @@ class FUNDUS_ImageProcess(object) :
             additional_targets = {"mask" : "mask"}
         )
     
-    def process(self, FUNDUS_item : dict) -> tuple[Image.Image, Image.Image] :
+    def process(self, FUNDUS_item) :
         img_path = FUNDUS_item["image"]
         msk_path = FUNDUS_item["mask"]
         
@@ -135,10 +136,10 @@ class FUNDUS_ImageProcess(object) :
         
         return final_img_PIL, final_msk_PIL
     
-    def FUNDUS_transform(self, FUNDUS_items : list[dict]) -> list[dict[str, Image.Image]] :
+    def FUNDUS_transform(self) :
         FUNDUS_output = list()
         
-        for FUNDUS in FUNDUS_items :
+        for FUNDUS in self.FUNDUS_path :
             transform_img, transform_msk = self.process(FUNDUS)
             FUNDUS_output.append({"image" : transform_img, "mask" : transform_msk})
         
@@ -146,7 +147,7 @@ class FUNDUS_ImageProcess(object) :
 
 
 class CAG_FUNDUS_Copy_Paste(object) :
-    def __init__(self, CAG_path : list[dict], FUNDUS_path : list[dict], output_path : str) :
+    def __init__(self, CAG_path, FUNDUS_path, output_path) :
         self.CAG_path = CAG_path
         self.FUNDUS_path = FUNDUS_path
         self.output_path = output_path
@@ -157,7 +158,7 @@ class CAG_FUNDUS_Copy_Paste(object) :
     def Copy_and_Paste(self) :
         num = 0
         
-        for CAG in tqdm(self.CAG_path, "Copy and Paste - ") :
+        for CAG in tqdm(self.CAG_path, desc = "Copy and Paste - ") :
             for FUNDUS in self.FUNDUS_path :
                 CAG_img = Image.open(CAG["image"]).convert("L")
                 CAG_img_ar = np.array(CAG_img)
@@ -228,3 +229,15 @@ class CAG_FUNDUS_Copy_Paste(object) :
                 num += 1
     
         print(f"Generate Complete !\nCAG {len(self.CAG_path)} * FUNDUS {len(self.FUNDUS_path)} = Total {len(self.CAG_path) * len(self.FUNDUS_path)}")
+
+def main() :
+    CAG_img_path = glob.glob(os.path.join("path/to", "image/*.png"))
+    CAG_msk_path = glob.glob(os.path.join("path/to", "mask/*.png"))
+    FUNDUS_img_path = glob.glob(os.path.join("path/to", "image/*.png"))
+    FUNDUS_msk_path = glob.glob(os.path.join("path/to", "mask/*.png"))
+
+    output_dir = "/path/to"
+    
+    CAG_path, FUNDUS_path = ImageLoader.load(CAG_img_path, CAG_msk_path, FUNDUS_img_path, FUNDUS_msk_path)
+    FUNDUS_output = FUNDUS_ImageProcess(FUNDUS_path).FUNDUS_transform()
+    CAG_FUNDUS_Copy_Paste(CAG_path, FUNDUS_output, output_dir).Copy_and_Paste()

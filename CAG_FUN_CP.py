@@ -16,33 +16,33 @@ def natural_key(text) :
 
 
 class ImageLoader(object) :
-    def __init__(self, CAG_img_path, CAG_msk_path, FUNDUS_img_path, FUNDUS_msk_path) :
-        self.CAG_img_path = sorted(CAG_img_path, key = natural_key)
-        self.CAG_msk_path = sorted(CAG_msk_path, key = natural_key)
-        self.FUNDUS_img_path = sorted(FUNDUS_img_path, key = natural_key)
-        self.FUNDUS_msk_path = sorted(FUNDUS_msk_path, key = natural_key)
+    def __init__(self, CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths) :
+        self.CAG_img_paths = sorted(CAG_img_paths, key = natural_key)
+        self.CAG_msk_paths = sorted(CAG_msk_paths, key = natural_key)
+        self.FUNDUS_img_paths = sorted(FUNDUS_img_paths, key = natural_key)
+        self.FUNDUS_msk_paths = sorted(FUNDUS_msk_paths, key = natural_key)
     
     def _validate_lengths(self) :
-        if len(self.CAG_img_path) != len(self.CAG_msk_path) :
+        if len(self.CAG_img_paths) != len(self.CAG_msk_paths) :
             warn = (f"[Warning] # of CAG image ≠ # of CAG mask")
             raise ValueError(warn)
         
-        if len(self.FUNDUS_img_path) != len(self.FUNDUS_msk_path) :
+        if len(self.FUNDUS_img_paths) != len(self.FUNDUS_msk_paths) :
             warn = (f"[Warning] # of FUNDUS image ≠ # of FUNDUS mask")
             raise ValueError(warn)
     
     def load(self) :
-        print(f"# of CAG image : {len(self.CAG_img_path)}")
-        print(f"# of CAG mask : {len(self.CAG_msk_path)}")
-        print(f"# of FUNDUS image : {len(self.FUNDUS_img_path)}")
-        print(f"# of FUNDUS mask : {len(self.FUNDUS_msk_path)}")
+        print(f"# of CAG image : {len(self.CAG_img_paths)}")
+        print(f"# of CAG mask : {len(self.CAG_msk_paths)}")
+        print(f"# of FUNDUS image : {len(self.FUNDUS_img_paths)}")
+        print(f"# of FUNDUS mask : {len(self.FUNDUS_msk_paths)}")
         
         self._validate_lengths()
         
-        CAG_path = [{"name" : self.CAG_img_path[i].split('/')[-1], "image" : self.CAG_img_path[i], "mask" : self.CAG_msk_path[i]} for i in range(len(self.CAG_img_path))]
-        FUNDUS_path = [{"name" : self.FUNDUS_img_path[i].split('/')[-1], "image" : self.FUNDUS_img_path[i], "mask" : self.FUNDUS_msk_path[i]} for i in range(len(self.FUNDUS_img_path))]
+        CAG_paths = [{"name" : self.CAG_img_paths[i].split('/')[-1], "image" : self.CAG_img_paths[i], "mask" : self.CAG_msk_paths[i]} for i in range(len(self.CAG_img_paths))]
+        FUNDUS_paths = [{"name" : self.FUNDUS_img_paths[i].split('/')[-1], "image" : self.FUNDUS_img_paths[i], "mask" : self.FUNDUS_msk_paths[i]} for i in range(len(self.FUNDUS_img_paths))]
         
-        return CAG_path, FUNDUS_path
+        return CAG_paths, FUNDUS_paths
 
 
 class CustomErode(A.DualTransform) :
@@ -94,8 +94,8 @@ class CustomDilate(A.DualTransform) :
         return cv2.dilate(mask, self.kernel, iterations = self.iterations)
 
 class FUNDUS_ImageProcess(object) :
-    def __init__(self, FUNDUS_path) :
-        self.FUNDUS_path = FUNDUS_path
+    def __init__(self, FUNDUS_paths) :
+        self.FUNDUS_paths = FUNDUS_paths
         self.FUNDUS_transforms = A.Compose(
             [
                 A.CLAHE(clip_limit = 8.0, tile_grid_size = (8, 8), p = 1),
@@ -109,9 +109,9 @@ class FUNDUS_ImageProcess(object) :
             additional_targets = {"mask" : "mask"}
         )
     
-    def process(self, FUNDUS_item) :
-        img_path = FUNDUS_item["image"]
-        msk_path = FUNDUS_item["mask"]
+    def process(self, FUNDUS_path) :
+        img_path = FUNDUS_path["image"]
+        msk_path = FUNDUS_path["mask"]
         
         img = Image.open(img_path).convert("L")
         img_ar = np.array(img)
@@ -137,19 +137,19 @@ class FUNDUS_ImageProcess(object) :
         return final_img_PIL, final_msk_PIL
     
     def FUNDUS_transform(self) :
-        FUNDUS_output = list()
+        FUNDUS_outputs = list()
         
-        for FUNDUS in self.FUNDUS_path :
+        for FUNDUS in self.FUNDUS_paths :
             transform_img, transform_msk = self.process(FUNDUS)
-            FUNDUS_output.append({"name" : FUNDUS["name"], "image" : transform_img, "mask" : transform_msk})
+            FUNDUS_outputs.append({"name" : FUNDUS["name"], "image" : transform_img, "mask" : transform_msk})
         
-        return FUNDUS_output
+        return FUNDUS_outputs
 
 
 class CAG_FUNDUS_Copy_Paste(object) :
-    def __init__(self, CAG_path, FUNDUS_path, output_path) :
-        self.CAG_path = CAG_path
-        self.FUNDUS_path = FUNDUS_path
+    def __init__(self, CAG_paths, FUNDUS_paths, output_paths) :
+        self.CAG_paths = CAG_paths
+        self.FUNDUS_paths = FUNDUS_paths
         self.output_path = output_path
         
         os.makedirs(os.path.join(self.output_path, "augmented_image"), exist_ok = True)
@@ -158,8 +158,8 @@ class CAG_FUNDUS_Copy_Paste(object) :
     def Copy_and_Paste(self) :
         # num = 0
         
-        for CAG in tqdm(self.CAG_path, desc = "Copy and Paste - ") :
-            for FUNDUS in self.FUNDUS_path :
+        for CAG in tqdm(self.CAG_paths, desc = "Copy and Paste - ") :
+            for FUNDUS in self.FUNDUS_paths :
                 CAG_img = Image.open(CAG["image"]).convert("L")
                 CAG_img_ar = np.array(CAG_img)
                 
@@ -230,16 +230,16 @@ class CAG_FUNDUS_Copy_Paste(object) :
                 CAG_img.save(f"{self.output_path}/augmented_image/{CAG["name"]}_{FUNDUS["name"]}.png")
                 CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG["name"]}_{FUNDUS["name"]}.png")
     
-        print(f"Generate Complete !\nCAG {len(self.CAG_path)} * FUNDUS {len(self.FUNDUS_path)} = Total {len(self.CAG_path) * len(self.FUNDUS_path)}")
+        print(f"Generate Complete !\nCAG {len(self.CAG_paths)} * FUNDUS {len(self.FUNDUS_paths)} = Total {len(self.CAG_paths) * len(self.FUNDUS_paths)}")
 
 def main() :
-    CAG_img_path = glob.glob(os.path.join("path/to", "image/*.png"))
-    CAG_msk_path = glob.glob(os.path.join("path/to", "mask/*.png"))
-    FUNDUS_img_path = glob.glob(os.path.join("path/to", "image/*.png"))
-    FUNDUS_msk_path = glob.glob(os.path.join("path/to", "mask/*.png"))
+    CAG_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
+    CAG_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
+    FUNDUS_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
+    FUNDUS_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
 
     output_dir = "/path/to"
     
-    CAG_path, FUNDUS_path = ImageLoader.load(CAG_img_path, CAG_msk_path, FUNDUS_img_path, FUNDUS_msk_path)
-    FUNDUS_output = FUNDUS_ImageProcess(FUNDUS_path).FUNDUS_transform()
-    CAG_FUNDUS_Copy_Paste(CAG_path, FUNDUS_output, output_dir).Copy_and_Paste()
+    CAG_paths, FUNDUS_paths = ImageLoader.load(CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths)
+    FUNDUS_outputs = FUNDUS_ImageProcess(FUNDUS_paths).FUNDUS_transform()
+    CAG_FUNDUS_Copy_Paste(CAG_paths, FUNDUS_outputs, output_dir).Copy_and_Paste()

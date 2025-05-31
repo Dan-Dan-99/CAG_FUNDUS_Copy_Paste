@@ -39,8 +39,8 @@ class ImageLoader(object) :
         
         self._validate_lengths()
         
-        CAG_path = [{"image" : self.CAG_img_path[i], "mask" : self.CAG_msk_path[i]} for i in range(len(self.CAG_img_path))]
-        FUNDUS_path = [{"image" : self.FUNDUS_img_path[i], "mask" : self.FUNDUS_msk_path[i]} for i in range(len(self.FUNDUS_img_path))]
+        CAG_path = [{"name" : self.CAG_img_path[i].split('/')[-1], "image" : self.CAG_img_path[i], "mask" : self.CAG_msk_path[i]} for i in range(len(self.CAG_img_path))]
+        FUNDUS_path = [{"name" : self.FUNDUS_img_path[i].split('/')[-1], "image" : self.FUNDUS_img_path[i], "mask" : self.FUNDUS_msk_path[i]} for i in range(len(self.FUNDUS_img_path))]
         
         return CAG_path, FUNDUS_path
 
@@ -141,7 +141,7 @@ class FUNDUS_ImageProcess(object) :
         
         for FUNDUS in self.FUNDUS_path :
             transform_img, transform_msk = self.process(FUNDUS)
-            FUNDUS_output.append({"image" : transform_img, "mask" : transform_msk})
+            FUNDUS_output.append({"name" : FUNDUS["name"], "image" : transform_img, "mask" : transform_msk})
         
         return FUNDUS_output
 
@@ -156,7 +156,7 @@ class CAG_FUNDUS_Copy_Paste(object) :
         os.makedirs(os.path.join(self.output_path, "augmented_mask"), exist_ok = True)
         
     def Copy_and_Paste(self) :
-        num = 0
+        # num = 0
         
         for CAG in tqdm(self.CAG_path, desc = "Copy and Paste - ") :
             for FUNDUS in self.FUNDUS_path :
@@ -223,10 +223,12 @@ class CAG_FUNDUS_Copy_Paste(object) :
                 CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = blur_FUNDUS_msk_ar)
                 CAG_msk.paste(FUNDUS_msk_PIL, (paste_x, paste_y), mask = blur_FUNDUS_msk_ar)
                 
-                CAG_img.save(f"{self.output_path}/augmented_image/{num:05d}.png")
-                CAG_msk.save(f"{self.output_path}/augmented_mask/{num:05d}.png")
+                # CAG_img.save(f"{self.output_path}/augmented_image/{num:05d}.png")
+                # CAG_msk.save(f"{self.output_path}/augmented_mask/{num:05d}.png")
+                # num += 1
                 
-                num += 1
+                CAG_img.save(f"{self.output_path}/augmented_image/{CAG["name"]}_{FUNDUS["name"]}.png")
+                CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG["name"]}_{FUNDUS["name"]}.png")
     
         print(f"Generate Complete !\nCAG {len(self.CAG_path)} * FUNDUS {len(self.FUNDUS_path)} = Total {len(self.CAG_path) * len(self.FUNDUS_path)}")
 

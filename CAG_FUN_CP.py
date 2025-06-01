@@ -147,7 +147,7 @@ class FUNDUS_ImageProcess(object) :
 
 
 class CAG_FUNDUS_Copy_Paste(object) :
-    def __init__(self, CAG_paths, FUNDUS_paths, output_paths) :
+    def __init__(self, CAG_paths, FUNDUS_paths, output_path) :
         self.CAG_paths = CAG_paths
         self.FUNDUS_paths = FUNDUS_paths
         self.output_path = output_path
@@ -158,17 +158,19 @@ class CAG_FUNDUS_Copy_Paste(object) :
     def Copy_and_Paste(self) :
         # num = 0
         
-        for CAG in tqdm(self.CAG_paths, desc = "Copy and Paste - ") :
+        for CAG in tqdm(self.CAG_paths, desc = "Copy and Paste ") :
+            CAG_name = CAG["name"].split('.')[0]
             for FUNDUS in self.FUNDUS_paths :
+                FUNDUS_name = FUNDUS["name"].split('.')[0]
                 CAG_img = Image.open(CAG["image"]).convert("L")
                 CAG_img_ar = np.array(CAG_img)
                 
                 CAG_msk = Image.open(CAG["mask"]).convert("L")
                 
-                FUNDUS_img = Image.open(FUNDUS["image"]).convert("L")
+                FUNDUS_img = FUNDUS["image"].convert("L")
                 FUNDUS_img_ar = np.array(FUNDUS_img)
                 
-                FUNDUS_msk = Image.open(FUNDUS["mask"]).convert("L")
+                FUNDUS_msk = FUNDUS["mask"].convert("L")
                 FUNDUS_msk_ar = np.array(FUNDUS_msk)
                 
                 CAG_x = CAG_img_ar.shape[0]
@@ -213,33 +215,37 @@ class CAG_FUNDUS_Copy_Paste(object) :
                 resize_FUNDUS_img_ar = cv2.resize(FUNDUS_img_ar, (img_size_x, img_size_y), interpolation = interpolate)
                 resize_FUNDUS_msk_ar = cv2.resize(FUNDUS_msk_ar, (img_size_x, img_size_y), interpolation = interpolate)
                 _, resize_FUNDUS_msk_ar = cv2.threshold(resize_FUNDUS_msk_ar, 0, 255, type = cv2.THRESH_BINARY)
-
-                blur_FUNDUS_img_ar = cv2.GaussianBlur(resize_FUNDUS_img_ar, kernel = (11, 11), sigmaX = 20)
-                blur_FUNDUS_msk_ar = cv2.GaussianBlur(resize_FUNDUS_msk_ar, kernel = (11, 11), sigmaX = 20)
                 
-                FUNDUS_img_PIL = Image.fromarray(blur_FUNDUS_img_ar, mode = "L")
+                blur_FUNDUS_img_ar = cv2.GaussianBlur(resize_FUNDUS_img_ar, ksize = (5, 5), sigmaX = 3)
+                blur_FUNDUS_msk_ar = cv2.GaussianBlur(resize_FUNDUS_msk_ar, ksize = (5, 5), sigmaX = 3)
+                
+                FUNDUS_img_PIL = Image.fromarray(blur_FUNDUS_img_ar + 20, mode = "L")
                 FUNDUS_msk_PIL = Image.fromarray(blur_FUNDUS_msk_ar, mode = "L")
+                FUNDUS_msk_PIL_2 = Image.fromarray(resize_FUNDUS_msk_ar, mode = "L")
                 
-                CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = blur_FUNDUS_msk_ar)
-                CAG_msk.paste(FUNDUS_msk_PIL, (paste_x, paste_y), mask = blur_FUNDUS_msk_ar)
+                CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = FUNDUS_msk_PIL)
+                CAG_msk.paste(255, (paste_x, paste_y), mask = FUNDUS_msk_PIL_2)
                 
                 # CAG_img.save(f"{self.output_path}/augmented_image/{num:05d}.png")
                 # CAG_msk.save(f"{self.output_path}/augmented_mask/{num:05d}.png")
                 # num += 1
                 
-                CAG_img.save(f"{self.output_path}/augmented_image/{CAG["name"].split('.')[0]}_{FUNDUS["name"].split('.')[0]}.png")
-                CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG["name"].split('.')[0]}_{FUNDUS["name"].split('.')[0]}.png")
-    
-        print(f"Generate Complete !\nCAG {len(self.CAG_paths)} * FUNDUS {len(self.FUNDUS_paths)} = Total {len(self.CAG_paths) * len(self.FUNDUS_paths)}")
+                CAG_img.save(f"{self.output_path}/augmented_image/{CAG_name}_{FUNDUS_name}.png")
+                CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG_name}_{FUNDUS_name}.png")
 
 def main() :
-    CAG_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
-    CAG_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
-    FUNDUS_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
-    FUNDUS_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
+    CAG_img_path = "path/to"
+    CAG_msk_path = "path/to"
+    FUNDUS_img_path = "path/to"
+    FUNDUS_msk_path = "path/to"
+    
+    CAG_img_paths = glob.glob(os.path.join(CAG_img_path, "image/*.png"))
+    CAG_msk_paths = glob.glob(os.path.join(CAG_msk_path, "mask/*.png"))
+    FUNDUS_img_paths = glob.glob(os.path.join(FUNDUS_img_path, "image/*.png"))
+    FUNDUS_msk_paths = glob.glob(os.path.join(FUNDUS_msk_path, "mask/*.png"))
 
     output_dir = "/path/to"
     
-    CAG_paths, FUNDUS_paths = ImageLoader.load(CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths)
+    CAG_paths, FUNDUS_paths = ImageLoader(CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths).load()
     FUNDUS_outputs = FUNDUS_ImageProcess(FUNDUS_paths).FUNDUS_transform()
-    CAG_FUNDUS_Copy_Paste(CAG_paths, FUNDUS_outputs, output_dir).Copy_and_Paste()
+#     CAG_FUNDUS_Copy_Paste(CAG_paths, FUNDUS_outputs, output_dir).Copy_and_Paste()

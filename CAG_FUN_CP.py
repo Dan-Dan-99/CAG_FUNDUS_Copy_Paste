@@ -155,97 +155,166 @@ class CAG_FUNDUS_Copy_Paste(object) :
         os.makedirs(os.path.join(self.output_path, "augmented_image"), exist_ok = True)
         os.makedirs(os.path.join(self.output_path, "augmented_mask"), exist_ok = True)
         
-    def Copy_and_Paste(self) :
+    def Copy_and_Paste(self, augment_num = None) :
         # num = 0
-        
-        for CAG in tqdm(self.CAG_paths, desc = "Copy and Paste ") :
-            CAG_name = CAG["name"].split('.')[0]
-            for FUNDUS in self.FUNDUS_paths :
-                FUNDUS_name = FUNDUS["name"].split('.')[0]
-                CAG_img = Image.open(CAG["image"]).convert("L")
-                CAG_img_ar = np.array(CAG_img)
+        if augment_num != None :
+            for CAG in tqdm(self.CAG_paths, desc = "Copy and Paste ") :
+                CAG_name = CAG["name"].split('.')[0]
+                FUNDUS_sample = random.sample(self.FUNDUS_paths, augment_num)
                 
-                CAG_msk = Image.open(CAG["mask"]).convert("L")
-                
-                FUNDUS_img = FUNDUS["image"].convert("L")
-                FUNDUS_img_ar = np.array(FUNDUS_img)
-                
-                FUNDUS_msk = FUNDUS["mask"].convert("L")
-                FUNDUS_msk_ar = np.array(FUNDUS_msk)
-                
-                CAG_x = CAG_img_ar.shape[0]
-                CAG_y = CAG_img_ar.shape[1]
-                
-                if CAG_x > CAG_y :
-                    CAG_size = CAG_y
-                elif CAG_x < CAG_y :
-                    CAG_size = CAG_x
-                else :
-                    CAG_size = CAG_x
-                
-                FUNDUS_x = FUNDUS_img_ar.shape[0]
-                FUNDUS_y = FUNDUS_img_ar.shape[1]
-                
-                if FUNDUS_x > FUNDUS_y :
-                    FUNDUS_size = FUNDUS_y
-                elif FUNDUS_x < FUNDUS_y :
-                    FUNDUS_size = FUNDUS_x
-                else :
-                    FUNDUS_size = FUNDUS_x
-                
-                if CAG_size >= FUNDUS_size :
-                    interpolate = cv2.INTER_CUBIC
-                else :
-                    interpolate = cv2.INTER_AREA
-                
-                scale_x = random.uniform(0.4, 0.6)
-                scale_y = random.uniform(0.4, 0.6)
-                
-                img_size_x = int(CAG_size * scale_x)
-                img_size_y = int(CAG_size * scale_y)
-                
-                if img_size_x >= img_size_y :
-                    FUNDUS_max_size = img_size_x
-                else :
-                    FUNDUS_max_size = img_size_y
-                
-                paste_x = random.randint(20, CAG_size - FUNDUS_max_size - 20)
-                paste_y = random.randint(20, CAG_size - FUNDUS_max_size - 20)
-                
-                resize_FUNDUS_img_ar = cv2.resize(FUNDUS_img_ar, (img_size_x, img_size_y), interpolation = interpolate)
-                resize_FUNDUS_msk_ar = cv2.resize(FUNDUS_msk_ar, (img_size_x, img_size_y), interpolation = interpolate)
-                _, resize_FUNDUS_msk_ar = cv2.threshold(resize_FUNDUS_msk_ar, 0, 255, type = cv2.THRESH_BINARY)
-                
-                blur_FUNDUS_img_ar = cv2.GaussianBlur(resize_FUNDUS_img_ar, ksize = (5, 5), sigmaX = 3)
-                blur_FUNDUS_msk_ar = cv2.GaussianBlur(resize_FUNDUS_msk_ar, ksize = (5, 5), sigmaX = 3)
-                
-                FUNDUS_img_PIL = Image.fromarray(blur_FUNDUS_img_ar + 20, mode = "L")
-                FUNDUS_msk_PIL = Image.fromarray(blur_FUNDUS_msk_ar, mode = "L")
-                FUNDUS_msk_PIL_2 = Image.fromarray(resize_FUNDUS_msk_ar, mode = "L")
-                
-                CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = FUNDUS_msk_PIL)
-                CAG_msk.paste(255, (paste_x, paste_y), mask = FUNDUS_msk_PIL_2)
-                
-                # CAG_img.save(f"{self.output_path}/augmented_image/{num:05d}.png")
-                # CAG_msk.save(f"{self.output_path}/augmented_mask/{num:05d}.png")
-                # num += 1
-                
-                CAG_img.save(f"{self.output_path}/augmented_image/{CAG_name}_{FUNDUS_name}.png")
-                CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG_name}_{FUNDUS_name}.png")
+                for FUNDUS in FUNDUS_sample :
+                    FUNDUS_name = FUNDUS["name"].split('.')[0]
+                    CAG_img = Image.open(CAG["image"]).convert("L")
+                    CAG_img_ar = np.array(CAG_img)
+                    
+                    CAG_msk = Image.open(CAG["mask"]).convert("L")
+                    
+                    FUNDUS_img = FUNDUS["image"].convert("L")
+                    FUNDUS_img_ar = np.array(FUNDUS_img)
+                    
+                    FUNDUS_msk = FUNDUS["mask"].convert("L")
+                    FUNDUS_msk_ar = np.array(FUNDUS_msk)
+                    
+                    CAG_x = CAG_img_ar.shape[0]
+                    CAG_y = CAG_img_ar.shape[1]
+                    
+                    if CAG_x > CAG_y :
+                        CAG_size = CAG_y
+                    elif CAG_x < CAG_y :
+                        CAG_size = CAG_x
+                    else :
+                        CAG_size = CAG_x
+                    
+                    FUNDUS_x = FUNDUS_img_ar.shape[0]
+                    FUNDUS_y = FUNDUS_img_ar.shape[1]
+                    
+                    if FUNDUS_x > FUNDUS_y :
+                        FUNDUS_size = FUNDUS_y
+                    elif FUNDUS_x < FUNDUS_y :
+                        FUNDUS_size = FUNDUS_x
+                    else :
+                        FUNDUS_size = FUNDUS_x
+                    
+                    if CAG_size >= FUNDUS_size :
+                        interpolate = cv2.INTER_CUBIC
+                    else :
+                        interpolate = cv2.INTER_AREA
+                    
+                    scale_x = random.uniform(0.4, 0.6)
+                    scale_y = random.uniform(0.4, 0.6)
+                    
+                    img_size_x = int(CAG_size * scale_x)
+                    img_size_y = int(CAG_size * scale_y)
+                    
+                    if img_size_x >= img_size_y :
+                        FUNDUS_max_size = img_size_x
+                    else :
+                        FUNDUS_max_size = img_size_y
+                    
+                    paste_x = random.randint(20, CAG_size - FUNDUS_max_size - 20)
+                    paste_y = random.randint(20, CAG_size - FUNDUS_max_size - 20)
+                    
+                    resize_FUNDUS_img_ar = cv2.resize(FUNDUS_img_ar, (img_size_x, img_size_y), interpolation = interpolate)
+                    resize_FUNDUS_msk_ar = cv2.resize(FUNDUS_msk_ar, (img_size_x, img_size_y), interpolation = interpolate)
+                    _, resize_FUNDUS_msk_ar = cv2.threshold(resize_FUNDUS_msk_ar, 0, 255, type = cv2.THRESH_BINARY)
+                    
+                    blur_FUNDUS_img_ar = cv2.GaussianBlur(resize_FUNDUS_img_ar, ksize = (5, 5), sigmaX = 3)
+                    blur_FUNDUS_msk_ar = cv2.GaussianBlur(resize_FUNDUS_msk_ar, ksize = (5, 5), sigmaX = 3)
+                    
+                    FUNDUS_img_PIL = Image.fromarray(blur_FUNDUS_img_ar + 20, mode = "L")
+                    FUNDUS_msk_PIL = Image.fromarray(blur_FUNDUS_msk_ar, mode = "L")
+                    FUNDUS_msk_PIL_2 = Image.fromarray(resize_FUNDUS_msk_ar, mode = "L")
+                    
+                    CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = FUNDUS_msk_PIL)
+                    CAG_msk.paste(255, (paste_x, paste_y), mask = FUNDUS_msk_PIL_2)
+                    
+                    CAG_img.save(f"{self.output_path}/augmented_image/{CAG_name}_{FUNDUS_name}.png")
+                    CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG_name}_{FUNDUS_name}.png")
+                    
+        else :
+            for CAG in tqdm(self.CAG_paths, desc = "Copy and Paste ") :
+                CAG_name = CAG["name"].split('.')[0]
+                for FUNDUS in self.FUNDUS_paths :
+                    FUNDUS_name = FUNDUS["name"].split('.')[0]
+                    CAG_img = Image.open(CAG["image"]).convert("L")
+                    CAG_img_ar = np.array(CAG_img)
+                    
+                    CAG_msk = Image.open(CAG["mask"]).convert("L")
+                    
+                    FUNDUS_img = FUNDUS["image"].convert("L")
+                    FUNDUS_img_ar = np.array(FUNDUS_img)
+                    
+                    FUNDUS_msk = FUNDUS["mask"].convert("L")
+                    FUNDUS_msk_ar = np.array(FUNDUS_msk)
+                    
+                    CAG_x = CAG_img_ar.shape[0]
+                    CAG_y = CAG_img_ar.shape[1]
+                    
+                    if CAG_x > CAG_y :
+                        CAG_size = CAG_y
+                    elif CAG_x < CAG_y :
+                        CAG_size = CAG_x
+                    else :
+                        CAG_size = CAG_x
+                    
+                    FUNDUS_x = FUNDUS_img_ar.shape[0]
+                    FUNDUS_y = FUNDUS_img_ar.shape[1]
+                    
+                    if FUNDUS_x > FUNDUS_y :
+                        FUNDUS_size = FUNDUS_y
+                    elif FUNDUS_x < FUNDUS_y :
+                        FUNDUS_size = FUNDUS_x
+                    else :
+                        FUNDUS_size = FUNDUS_x
+                    
+                    if CAG_size >= FUNDUS_size :
+                        interpolate = cv2.INTER_CUBIC
+                    else :
+                        interpolate = cv2.INTER_AREA
+                    
+                    scale_x = random.uniform(0.4, 0.6)
+                    scale_y = random.uniform(0.4, 0.6)
+                    
+                    img_size_x = int(CAG_size * scale_x)
+                    img_size_y = int(CAG_size * scale_y)
+                    
+                    if img_size_x >= img_size_y :
+                        FUNDUS_max_size = img_size_x
+                    else :
+                        FUNDUS_max_size = img_size_y
+                    
+                    paste_x = random.randint(20, CAG_size - FUNDUS_max_size - 20)
+                    paste_y = random.randint(20, CAG_size - FUNDUS_max_size - 20)
+                    
+                    resize_FUNDUS_img_ar = cv2.resize(FUNDUS_img_ar, (img_size_x, img_size_y), interpolation = interpolate)
+                    resize_FUNDUS_msk_ar = cv2.resize(FUNDUS_msk_ar, (img_size_x, img_size_y), interpolation = interpolate)
+                    _, resize_FUNDUS_msk_ar = cv2.threshold(resize_FUNDUS_msk_ar, 0, 255, type = cv2.THRESH_BINARY)
+                    
+                    blur_FUNDUS_img_ar = cv2.GaussianBlur(resize_FUNDUS_img_ar, ksize = (5, 5), sigmaX = 3)
+                    blur_FUNDUS_msk_ar = cv2.GaussianBlur(resize_FUNDUS_msk_ar, ksize = (5, 5), sigmaX = 3)
+                    
+                    FUNDUS_img_PIL = Image.fromarray(blur_FUNDUS_img_ar + 20, mode = "L")
+                    FUNDUS_msk_PIL = Image.fromarray(blur_FUNDUS_msk_ar, mode = "L")
+                    FUNDUS_msk_PIL_2 = Image.fromarray(resize_FUNDUS_msk_ar, mode = "L")
+                    
+                    CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = FUNDUS_msk_PIL)
+                    CAG_msk.paste(255, (paste_x, paste_y), mask = FUNDUS_msk_PIL_2)
+                    
+                    # CAG_img.save(f"{self.output_path}/augmented_image/{num:05d}.png")
+                    # CAG_msk.save(f"{self.output_path}/augmented_mask/{num:05d}.png")
+                    # num += 1
+                    
+                    CAG_img.save(f"{self.output_path}/augmented_image/{CAG_name}_{FUNDUS_name}.png")
+                    CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG_name}_{FUNDUS_name}.png")
 
-def main() :
-    CAG_img_path = "path/to"
-    CAG_msk_path = "path/to"
-    FUNDUS_img_path = "path/to"
-    FUNDUS_msk_path = "path/to"
-    
-    CAG_img_paths = glob.glob(os.path.join(CAG_img_path, "image/*.png"))
-    CAG_msk_paths = glob.glob(os.path.join(CAG_msk_path, "mask/*.png"))
-    FUNDUS_img_paths = glob.glob(os.path.join(FUNDUS_img_path, "image/*.png"))
-    FUNDUS_msk_paths = glob.glob(os.path.join(FUNDUS_msk_path, "mask/*.png"))
+# def main() :
+#     CAG_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
+#     CAG_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
+#     FUNDUS_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
+#     FUNDUS_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
 
-    output_dir = "/path/to"
+#     output_dir = "/path/to"
     
-    CAG_paths, FUNDUS_paths = ImageLoader(CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths).load()
-    FUNDUS_outputs = FUNDUS_ImageProcess(FUNDUS_paths).FUNDUS_transform()
-#     CAG_FUNDUS_Copy_Paste(CAG_paths, FUNDUS_outputs, output_dir).Copy_and_Paste()
+#     CAG_paths, FUNDUS_paths = ImageLoader.load(CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths)
+#     FUNDUS_outputs = FUNDUS_ImageProcess(FUNDUS_paths).FUNDUS_transform()
+#     CAG_FUNDUS_Copy_Paste(CAG_paths, FUNDUS_outputs, output_dir).Copy_and_Paste(augment_num = 4)

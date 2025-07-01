@@ -6,11 +6,9 @@ import random
 import numpy as np
 from PIL import Image
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-
 import albumentations as A
 
-# 자연 정렬 함수
+# 오름차순 정렬 함수
 def natural_key(text) :
     return [int(t) if t.isdigit() else t.lower() for t in re.split('(\d+)', text)]
 
@@ -94,8 +92,9 @@ class CustomDilate(A.DualTransform) :
         return cv2.dilate(mask, self.kernel, iterations = self.iterations)
 
 class FUNDUS_ImageProcess(object) :
-    def __init__(self, FUNDUS_paths) :
+    def __init__(self, FUNDUS_paths, FUNDUS_output_path) :
         self.FUNDUS_paths = FUNDUS_paths
+        self.FUNDUS_output_path = FUNDUS_output_path
         self.FUNDUS_transforms = A.Compose(
             [
                 A.CLAHE(clip_limit = 8.0, tile_grid_size = (8, 8), p = 1),
@@ -139,11 +138,32 @@ class FUNDUS_ImageProcess(object) :
     def FUNDUS_transform(self) :
         FUNDUS_outputs = list()
         
+        os.makedirs(os.path.join(self.FUNDUS_output_path, "image"), exist_ok = True)
+        os.makedirs(os.path.join(self.FUNDUS_output_path, "mask"), exist_ok = True)
+        
         for FUNDUS in self.FUNDUS_paths :
             transform_img, transform_msk = self.process(FUNDUS)
-            FUNDUS_outputs.append({"name" : FUNDUS["name"], "image" : transform_img, "mask" : transform_msk})
+            transform_img.save(f"{self.FUNDUS_output_path}/image/{FUNDUS['name']}.png")
+            transform_msk.save(f"{self.FUNDUS_output_path}/mask/{FUNDUS['name']}.png")
+
+
+class augment_FUNDUS_list(object) :
+    def __init__(self, augment_FUNDUS_path) :
+        self.augment_FUNDUS_path = augment_FUNDUS_path
         
-        return FUNDUS_outputs
+        # os.makedirs(os.path.join(self.augment_FUNDUS_path, "image"), exist_ok = True)
+        # os.makedirs(os.path.join(self.augment_FUNDUS_path, "mask"), exist_ok = True)
+    
+    def make_list(self) :
+        augment_FUNDUS_img_paths = glob.glob(os.path.join(self.augment_FUNDUS_path, "image/*.png"))
+        augment_FUNDUS_img_paths = sorted(augment_FUNDUS_img_paths, key = natural_key)
+        
+        augment_FUNDUS_msk_paths = glob.glob(os.path.join(self.augment_FUNDUS_path, "mask/*.png"))
+        augment_FUNDUS_msk_paths = sorted(augment_FUNDUS_msk_paths, key = natural_key)
+        
+        augment_FUNDUS_paths = [{"name" : augment_FUNDUS_img_paths[i].split('/')[-1], "image" : augment_FUNDUS_img_paths[i], "mask" : augment_FUNDUS_msk_paths[i]} for i in range(len(augment_FUNDUS_img_paths))]
+        
+        return augment_FUNDUS_paths
 
 
 class CAG_FUNDUS_Copy_Paste(object) :
@@ -152,8 +172,8 @@ class CAG_FUNDUS_Copy_Paste(object) :
         self.FUNDUS_paths = FUNDUS_paths
         self.output_path = output_path
         
-        os.makedirs(os.path.join(self.output_path, "augmented_image"), exist_ok = True)
-        os.makedirs(os.path.join(self.output_path, "augmented_mask"), exist_ok = True)
+        os.makedirs(os.path.join(self.output_path, "image"), exist_ok = True)
+        os.makedirs(os.path.join(self.output_path, "mask"), exist_ok = True)
         
     def Copy_and_Paste(self, augment_num = None) :
         # num = 0
@@ -169,10 +189,10 @@ class CAG_FUNDUS_Copy_Paste(object) :
                     
                     CAG_msk = Image.open(CAG["mask"]).convert("L")
                     
-                    FUNDUS_img = FUNDUS["image"].convert("L")
+                    FUNDUS_img = Image.open(FUNDUS["image"]).convert("L")
                     FUNDUS_img_ar = np.array(FUNDUS_img)
                     
-                    FUNDUS_msk = FUNDUS["mask"].convert("L")
+                    FUNDUS_msk = Image.open(FUNDUS["mask"]).convert("L")
                     FUNDUS_msk_ar = np.array(FUNDUS_msk)
                     
                     CAG_x = CAG_img_ar.shape[0]
@@ -228,6 +248,8 @@ class CAG_FUNDUS_Copy_Paste(object) :
                     CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = FUNDUS_msk_PIL)
                     CAG_msk.paste(255, (paste_x, paste_y), mask = FUNDUS_msk_PIL_2)
                     
+                    FUNDUS_img_PIL.save(f"{self.output_path}/fundus_image/{FUNDUS_name}.png")
+                    FUNDUS_msk_PIL_2.save(f"{self.output_path}/fundus_mask/{FUNDUS_name}.png")
                     CAG_img.save(f"{self.output_path}/augmented_image/{CAG_name}_{FUNDUS_name}.png")
                     CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG_name}_{FUNDUS_name}.png")
                     
@@ -241,10 +263,10 @@ class CAG_FUNDUS_Copy_Paste(object) :
                     
                     CAG_msk = Image.open(CAG["mask"]).convert("L")
                     
-                    FUNDUS_img = FUNDUS["image"].convert("L")
+                    FUNDUS_img = Image.open(FUNDUS["image"]).convert("L")
                     FUNDUS_img_ar = np.array(FUNDUS_img)
                     
-                    FUNDUS_msk = FUNDUS["mask"].convert("L")
+                    FUNDUS_msk = Image.open(FUNDUS["mask"]).convert("L")
                     FUNDUS_msk_ar = np.array(FUNDUS_msk)
                     
                     CAG_x = CAG_img_ar.shape[0]
@@ -300,21 +322,39 @@ class CAG_FUNDUS_Copy_Paste(object) :
                     CAG_img.paste(FUNDUS_img_PIL, (paste_x, paste_y), mask = FUNDUS_msk_PIL)
                     CAG_msk.paste(255, (paste_x, paste_y), mask = FUNDUS_msk_PIL_2)
                     
+                    FUNDUS_img_PIL.save(f"{self.output_path}/fundus_image/{FUNDUS_name}.png")
+                    FUNDUS_msk_PIL_2.save(f"{self.output_path}/fundus_mask/{FUNDUS_name}.png")
                     # CAG_img.save(f"{self.output_path}/augmented_image/{num:05d}.png")
                     # CAG_msk.save(f"{self.output_path}/augmented_mask/{num:05d}.png")
                     # num += 1
                     
-                    CAG_img.save(f"{self.output_path}/augmented_image/{CAG_name}_{FUNDUS_name}.png")
-                    CAG_msk.save(f"{self.output_path}/augmented_mask/{CAG_name}_{FUNDUS_name}.png")
+                    CAG_img.save(f"{self.output_path}/image/{CAG_name}_{FUNDUS_name}.png")
+                    CAG_msk.save(f"{self.output_path}/mask/{CAG_name}_{FUNDUS_name}.png")
 
-# def main() :
-#     CAG_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
-#     CAG_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
-#     FUNDUS_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
-#     FUNDUS_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
-
-#     output_dir = "/path/to"
+if __name__ == "__main__" :
+    # CAG_path = "/path/to/CAG"
+    # FUNDUS_path = "/path/to/FUNDUS"
+    output_path = "/path/to/output"
+    augment_FUNDUS_path = "/path/to/augmented_FUNDUS"
     
-#     CAG_paths, FUNDUS_paths = ImageLoader.load(CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths)
-#     FUNDUS_outputs = FUNDUS_ImageProcess(FUNDUS_paths).FUNDUS_transform()
-#     CAG_FUNDUS_Copy_Paste(CAG_paths, FUNDUS_outputs, output_dir).Copy_and_Paste(augment_num = 4)
+    # os.makedirs(os.path.join(CAG_path, "image"), exist_ok = True)
+    # os.makedirs(os.path.join(CAG_path, "mask"), exist_ok = True)
+    # os.makedirs(os.path.join(FUNDUS_path, "image"), exist_ok = True)
+    # os.makedirs(os.path.join(FUNDUS_path, "mask"), exist_ok = True)
+    
+    # CAG_img_paths = glob.glob(os.path.join(CAG_path, "image/*.png"))
+    # CAG_msk_paths = glob.glob(os.path.join(CAG_path, "mask/*.png"))
+    # FUNDUS_img_paths = glob.glob(os.path.join(FUNDUS_path, "image/*.png"))
+    # FUNDUS_msk_paths = glob.glob(os.path.join(FUNDUS_path, "mask/*.png"))
+    
+    CAG_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
+    CAG_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
+    FUNDUS_img_paths = glob.glob(os.path.join("path/to", "image/*.png"))
+    FUNDUS_msk_paths = glob.glob(os.path.join("path/to", "mask/*.png"))
+    
+    CAG_paths, FUNDUS_paths = ImageLoader.load(CAG_img_paths, CAG_msk_paths, FUNDUS_img_paths, FUNDUS_msk_paths)
+    # FUNDUS_outputs = FUNDUS_ImageProcess(FUNDUS_paths, augment_FUNDUS_path).FUNDUS_transform()
+    FUNDUS_ImageProcess(FUNDUS_paths, augment_FUNDUS_path).FUNDUS_transform()
+    augment_FUNDUS_paths = augment_FUNDUS_list(augment_FUNDUS_path).make_list()
+    # augment_num = 1 : 1배수
+    CAG_FUNDUS_Copy_Paste(CAG_paths, augment_FUNDUS_paths, output_path).Copy_and_Paste(augment_num = 1)
